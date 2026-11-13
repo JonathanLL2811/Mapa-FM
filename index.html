@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa de Municipios y Centros de Salud - Francisco Morazán</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #f4f6f9;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background-color: #1b365d;
+      color: white;
+      padding: 15px 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    header h1 {
+      font-size: 1.3rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Panel Lateral de Control y Referencias */
+    .sidebar {
+      width: 360px;
+      background: white;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      border-right: 1px solid #e1e4e8;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+      z-index: 1000;
+      overflow-y: auto;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .filter-group label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #1b365d;
+    }
+
+    select, input {
+      padding: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      width: 100%;
+      background-color: #f8fafc;
+    }
+
+    .btn-print {
+      background-color: #0d9488;
+      color: white;
+      border: none;
+      padding: 11px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .btn-print:hover {
+      background-color: #0f766e;
+    }
+
+    /* Lista de Referencia Numérica de Municipios */
+    .reference-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .reference-title {
+      font-weight: bold;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      color: #1b365d;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 4px;
+    }
+
+    .reference-list {
+      list-style: none;
+      font-size: 0.83rem;
+      color: #334155;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 250px;
+      overflow-y: auto;
+      padding-right: 5px;
+    }
+
+    .reference-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s, color 0.2s;
+      user-select: none;
+    }
+
+    .reference-list li:hover {
+      background-color: #e2e8f0;
+      color: #1b365d;
+      font-weight: 600;
+    }
+
+    .reference-list li .num-tag {
+      background-color: #1b365d;
+      color: white;
+      font-weight: bold;
+      font-size: 10px;
+      border-radius: 50%;
+      min-width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .legend {
+      background: #f8fafc;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .legend-title {
+      font-weight: bold;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+      color: #334155;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: #475569;
+    }
+
+    #map {
+      flex: 1;
+      height: 100%;
+      background-color: #e2e8f0;
+    }
+
+    /* Estilo de los pines de Casitas (Salud) */
+    .custom-house-icon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 50%;
+      color: white;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+      border: 2px solid white;
+    }
+
+    .icon-norte { background-color: #2563eb; }  
+    .icon-centro { background-color: #16a34a; } 
+    .icon-sur { background-color: #ea580c; }    
+
+    /* Círculos numéricos dentro del mapa para los municipios */
+    .municipio-num-badge {
+      background-color: #334155;
+      color: white;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 11px;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+
+    .print-table-container { display: none; }
+
+    @media print {
+      body { background: white; height: auto; }
+      header, .sidebar, .leaflet-control-container { display: none !important; }
+      .container { display: block; }
+      #map { height: 500px !important; width: 100% !important; border: 1px solid #cbd5e1; }
+      .print-header { display: block !important; text-align: center; margin-bottom: 20px; }
+      .print-table-container { display: block !important; margin-top: 25px; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+      th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+      th { background-color: #f1f5f9; color: #1b365d; }
+    }
+    .print-header { display: none; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1><i class="fa-solid fa-hospital-user"></i> Centros de Salud por Zonas - Francisco Morazán</h1>
+  </header>
+
+  <div class="container">
+    <aside class="sidebar">
+      <div class="filter-group">
+        <label for="zoneSelect">Filtrar Zona Sanitaria:</label>
+        <select id="zoneSelect" onchange="filterData()">
+          <option value="todas">-- Todas las Zonas --</option>
+          <option value="Norte">Zona Norte</option>
+          <option value="Centro">Zona Centro</option>
+          <option value="Sur">Zona Sur</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="searchInput">Buscar Centro, Municipio o Representante:</label>
+        <input type="text" id="searchInput" placeholder="Ej: Talanga, Wendy..." onkeyup="filterData()">
+      </div>
+
+      <div class="legend">
+        <div class="legend-title">Simbología Centros de Salud:</div>
+        <div class="legend-item"><i class="fa-solid fa-house-medical" style="color: #2563eb;"></i> Zona Norte</div>
+        <div class="legend-item"><i class="fa-solid fa-house-medical" style="color: #16a34a;"></i> Zona Centro</div>
+        <div class="legend-item"><i class="fa-solid fa-house-medical" style="color: #ea580c;"></i> Zona Sur</div>
+      </div>
+
+      <button class="btn-print" onclick="window.print()">
+        <i class="fa-solid fa-print"></i> Imprimir / Guardar PDF
+      </button>
+
+      <!-- REFERENCIA NUMÉRICA DE MUNICIPIOS -->
+      <div class="reference-box">
+        <div class="reference-title">Índice de Municipios (Haz clic para ir):</div>
+        <ul class="reference-list" id="referenceList"></ul>
+      </div>
+    </aside>
+
+    <main id="map"></main>
+  </div>
+
+  <div class="print-header" id="printHeader">
+    <h2>Reporte de Centros de Salud - Departamento de Francisco Morazán</h2>
+    <p id="printZoneText">Zona: Todas</p>
+  </div>
+
+  <div class="print-table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre del Centro</th>
+          <th>Tipo</th>
+          <th>Municipio</th>
+          <th>Zona</th>
+          <th>Representante</th>
+          <th>Teléfono</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // 1. INICIALIZAR MAPA CON LÍMITES FLUIDOS Y SIN BLOQUEOS
+    const fmBounds = [
+      [13.4000, -87.8500], // Suroeste
+      [15.1000, -86.3500]  // Noreste
+    ];
+
+    const map = L.map('map', {
+      zoomControl: true,
+      minZoom: 9,
+      maxZoom: 15,
+      maxBounds: fmBounds,
+      maxBoundsViscosity: 0.9
+    }).setView([14.1800, -87.1600], 10);
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      attribution: 'Tiles &copy; Esri &mdash; Francisco Morazán Map'
+    }).addTo(map);
+
+    // --- 2. LISTA DE LOS 28 MUNICIPIOS ---
+    const municipios = [
+      { id: 1, nombre: "Alubarén", lat: 13.7972, lng: -87.4703 },
+      { id: 2, nombre: "Cantarranas (San Juan de Flores)", lat: 14.2631, lng: -87.0275 },
+      { id: 3, nombre: "Cedros", lat: 14.5956, lng: -87.1186 },
+      { id: 4, nombre: "Curarén", lat: 13.8492, lng: -87.5328 },
+      { id: 5, nombre: "Distrito Central", lat: 14.0818, lng: -87.2068 },
+      { id: 6, nombre: "El Porvenir", lat: 14.7561, lng: -87.1900 },
+      { id: 7, nombre: "Guaimaca", lat: 14.5489, lng: -86.8278 },
+      { id: 8, nombre: "La Libertad", lat: 13.7133, lng: -87.4981 },
+      { id: 9, nombre: "La Venta", lat: 13.7586, lng: -87.3128 },
+      { id: 10, nombre: "Lepaterique", lat: 14.0642, lng: -87.4700 },
+      { id: 11, nombre: "Maraita", lat: 13.8844, lng: -87.0414 },
+      { id: 12, nombre: "Marale", lat: 14.8933, lng: -87.1717 },
+      { id: 13, nombre: "Nueva Armenia", lat: 13.7589, lng: -87.1636 },
+      { id: 14, nombre: "Ojojona", lat: 13.9339, lng: -87.2958 },
+      { id: 15, nombre: "Orica", lat: 14.7158, lng: -86.9428 },
+      { id: 16, nombre: "Reitoca", lat: 13.8333, lng: -87.4000 },
+      { id: 17, nombre: "Sabanagrande", lat: 13.8094, lng: -87.2597 },
+      { id: 18, nombre: "San Antonio de Oriente", lat: 14.0450, lng: -87.0253 },
+      { id: 19, nombre: "San Buenaventura", lat: 13.8969, lng: -87.2000 },
+      { id: 20, nombre: "San Ignacio", lat: 14.6575, lng: -87.0367 },
+      { id: 21, nombre: "San Miguelito", lat: 13.7417, lng: -87.4936 },
+      { id: 22, nombre: "Santa Ana", lat: 13.9317, lng: -87.2714 },
+      { id: 23, nombre: "Santa Lucía", lat: 14.1158, lng: -87.1131 },
+      { id: 24, nombre: "Talanga", lat: 14.4022, lng: -87.0864 },
+      { id: 25, nombre: "Tatumbla", lat: 14.0167, lng: -87.1000 },
+      { id: 26, nombre: "Valle de Ángeles", lat: 14.1569, lng: -87.0422 },
+      { id: 27, nombre: "Vallecillo", lat: 14.5183, lng: -87.3986 },
+      { id: 28, nombre: "Villa de San Francisco", lat: 14.1756, lng: -86.9542 }
+    ];
+
+    const referenceList = document.getElementById("referenceList");
+
+    municipios.forEach(function(m) {
+      const numMarker = L.marker([m.lat, m.lng], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div class="municipio-num-badge" title="' + m.nombre + '">' + m.id + '</div>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        })
+      }).bindPopup('<b>Municipio ' + m.id + ':</b> ' + m.nombre).addTo(map);
+
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="num-tag">' + m.id + '</span> ' + m.nombre;
+      li.onclick = function() {
+        map.flyTo([m.lat, m.lng], 12, { animate: true, duration: 1.2 });
+        numMarker.openPopup();
+      };
+      referenceList.appendChild(li);
+    });
+
+    // --- 3. BASE DE DATOS DE CENTROS DE SALUD CON REPRESENTANTE Y TELÉFONO ACTUALIZADOS ---
+    const centrosSalud = [
+      // RED SABANAGRANDE
+      { id: 1, nombre: "CIS San Miguelito", tipo: "CIS", municipio: "San Miguelito", zona: "Sur", codigoRups: "3468", lat: 13.7417, lng: -87.4936, nombreRepresentante: "Katherine Mariela Fuentes Laínez", tel: "3396-9112" },
+      { id: 2, nombre: "UAPS Jicarillo", tipo: "UAPS", municipio: "La Libertad", zona: "Sur", codigoRups: "83968", lat: 13.6953, lng: -87.4813, nombreRepresentante: "Claudia Elizabeth Oyuela Martínez", tel: "3224-5913" },
+      { id: 3, nombre: "CIS La Libertad", tipo: "CIS", municipio: "La Libertad", zona: "Sur", codigoRups: "3450", lat: 13.7134, lng: -87.4983, nombreRepresentante: "Claudia Elizabeth Oyuela Martínez", tel: "3224-5913" },
+      { id: 4, nombre: "UAPS El Aguacatal", tipo: "UAPS", municipio: "Ojojona", zona: "Centro", codigoRups: "80420", lat: 13.8825, lng: -87.3190, nombreRepresentante: "Carmen Sagrario Lobo Mendoza", tel: "9901-9803" },
+      { id: 5, nombre: "UAPS Guazucarán", tipo: "UAPS", municipio: "Ojojona", zona: "Centro", codigoRups: "7641", lat: 13.8669, lng: -87.3736, nombreRepresentante: "Carmen Sagrario Lobo Mendoza", tel: "9901-9803" },
+      { id: 6, nombre: "CIS Ojojona", tipo: "CIS", municipio: "Ojojona", zona: "Centro", codigoRups: "914", lat: 13.9366, lng: -87.2959, nombreRepresentante: "Carmen Sagrario Lobo Mendoza", tel: "9901-9803" },
+      { id: 7, nombre: "UAPS El Terrero", tipo: "UAPS", municipio: "San Buenaventura", zona: "Sur", codigoRups: "1081", lat: 13.8383, lng: -87.1868, nombreRepresentante: "Josefa María Laínez", tel: "9639-1782" },
+      { id: 8, nombre: "UAPS El Sauce", tipo: "UAPS", municipio: "San Buenaventura", zona: "Sur", codigoRups: "931", lat: 13.9120, lng: -87.2180, nombreRepresentante: "Josefa María Laínez", tel: "9639-1782" },
+      { id: 9, nombre: "CIS San Buenaventura", tipo: "CIS", municipio: "San Buenaventura", zona: "Sur", codigoRups: "949", lat: 13.8971, lng: -87.2007, nombreRepresentante: "Josefa María Laínez", tel: "9639-1782" },
+      { id: 10, nombre: "CIS La Cali", tipo: "CIS", municipio: "Santa Ana", zona: "Centro", codigoRups: "11495", lat: 13.9512, lng: -87.2347, nombreRepresentante: "Ulises Eduardo Cerrato Vargas", tel: "9671-1028" },
+      { id: 11, nombre: "UAPS Montaña de Izopo", tipo: "UAPS", municipio: "Santa Ana", zona: "Centro", codigoRups: "9423", lat: 13.9850, lng: -87.2150, nombreRepresentante: "Ulises Eduardo Cerrato Vargas", tel: "9671-1028" },
+      { id: 12, nombre: "CIS Santa Ana", tipo: "CIS", municipio: "Santa Ana", zona: "Centro", codigoRups: "965", lat: 13.9308, lng: -87.2712, nombreRepresentante: "Ulises Eduardo Cerrato Vargas", tel: "9671-1028" },
+      { id: 13, nombre: "UAPS La Ceiba", tipo: "UAPS", municipio: "Sabanagrande", zona: "Sur", codigoRups: "9377", lat: 13.7822, lng: -87.2787, nombreRepresentante: "Wendy Yadira Martínez Ochoa", tel: "9570-3809" },
+      { id: 14, nombre: "UAPS Nanzales", tipo: "UAPS", municipio: "Sabanagrande", zona: "Sur", codigoRups: "9369", lat: 13.7950, lng: -87.2850, nombreRepresentante: "Wendy Yadira Martínez Ochoa", tel: "9570-3809" },
+      { id: 15, nombre: "CIS Sabanagrande", tipo: "CIS", municipio: "Sabanagrande", zona: "Sur", codigoRups: "922", lat: 13.8080, lng: -87.2599, nombreRepresentante: "Wendy Yadira Martínez Ochoa", tel: "9570-3809" },
+      { id: 16, nombre: "ZPP San Carlos", tipo: "ZPP", municipio: "Reitoca", zona: "Sur", codigoRups: "84379", lat: 13.8678, lng: -87.3951, nombreRepresentante: "Roy Manfredo Maldonado Isidro", tel: "8948-4126" },
+      { id: 17, nombre: "ZPP Azacualpa", tipo: "ZPP", municipio: "Reitoca", zona: "Sur", codigoRups: "83534", lat: 13.8267, lng: -87.4659, nombreRepresentante: "Roy Manfredo Maldonado Isidro", tel: "8948-4126" },
+      { id: 18, nombre: "ZPP Santa Cruz", tipo: "ZPP", municipio: "Reitoca", zona: "Sur", codigoRups: "80772", lat: 13.7975, lng: -87.4663, nombreRepresentante: "Roy Manfredo Maldonado Isidro", tel: "8948-4126" },
+      { id: 19, nombre: "ZPP Cerro del Señor", tipo: "ZPP", municipio: "Reitoca", zona: "Sur", codigoRups: "80764", lat: 13.8113, lng: -87.4193, nombreRepresentante: "Roy Manfredo Maldonado Isidro", tel: "8948-4126" },
+      { id: 20, nombre: "ZPP La Guadalupe", tipo: "ZPP", municipio: "Reitoca", zona: "Sur", codigoRups: "3891", lat: 13.8350, lng: -87.4450, nombreRepresentante: "Roy Manfredo Maldonado Isidro", tel: "8948-4126" },
+      { id: 21, nombre: "CMI Reitoca", tipo: "CMI", municipio: "Reitoca", zona: "Sur", codigoRups: "82112", lat: 13.8245, lng: -87.4140, nombreRepresentante: "Roy Manfredo Maldonado Isidro", tel: "8948-4126" },
+      { id: 22, nombre: "CIS Reitoca", tipo: "CIS", municipio: "Reitoca", zona: "Sur", codigoRups: "3905", lat: 13.8232, lng: -87.4151, nombreRepresentante: "Roy Manfredo Maldonado Isidro", tel: "8948-4126" },
+      { id: 23, nombre: "CIS Nueva Armenia", tipo: "CIS", municipio: "Nueva Armenia", zona: "Sur", codigoRups: "906", lat: 13.8056, lng: -87.1646, nombreRepresentante: "Gustavo Adalid Ortega Aguilar", tel: "8813-5745" },
+      { id: 24, nombre: "UAPS Opimuca", tipo: "UAPS", municipio: "La Venta", zona: "Sur", codigoRups: "80781", lat: 13.7429, lng: -87.3461, nombreRepresentante: "Hilda Lireth Rodas", tel: "3239-1066" },
+      { id: 25, nombre: "CIS La Venta", tipo: "CIS", municipio: "La Venta", zona: "Sur", codigoRups: "884", lat: 13.7579, lng: -87.3127, nombreRepresentante: "Hilda Lireth Rodas", tel: "3239-1066" },
+      { id: 26, nombre: "ZPP La Victorina", tipo: "ZPP", municipio: "Curarén", zona: "Sur", codigoRups: "85120", lat: 13.8199, lng: -87.5894, nombreRepresentante: "Ramiro Antonio Medina Hernández", tel: "3309-1502" },
+      { id: 27, nombre: "ZPP Lodo Negro", tipo: "ZPP", municipio: "Curarén", zona: "Sur", codigoRups: "10430", lat: 13.8495, lng: -87.5587, nombreRepresentante: "Ramiro Antonio Medina Hernández", tel: "3309-1502" },
+      { id: 28, nombre: "ZPP La Cuchilla", tipo: "ZPP", municipio: "Curarén", zona: "Sur", codigoRups: "81515", lat: 13.8360, lng: -87.5220, nombreRepresentante: "Ramiro Antonio Medina Hernández", tel: "3309-1502" },
+      { id: 29, nombre: "UAPS Caragual", tipo: "UAPS", municipio: "Curarén", zona: "Sur", codigoRups: "9440", lat: 13.8055, lng: -87.5509, nombreRepresentante: "Ramiro Antonio Medina Hernández", tel: "3309-1502" },
+      { id: 30, nombre: "CIS San Marcos de Curarén", tipo: "CIS", municipio: "Curarén", zona: "Sur", codigoRups: "3875", lat: 13.8513, lng: -87.5383, nombreRepresentante: "Ramiro Antonio Medina Hernández", tel: "3309-1502" },
+      { id: 31, nombre: "UAPS El Portillo", tipo: "UAPS", municipio: "Curarén", zona: "Sur", codigoRups: "3867", lat: 13.8759, lng: -87.5204, nombreRepresentante: "Ramiro Antonio Medina Hernández", tel: "3309-1502" },
+      { id: 32, nombre: "CIS Curarén", tipo: "CIS", municipio: "Curarén", zona: "Sur", codigoRups: "3859", lat: 13.8489, lng: -87.5317, nombreRepresentante: "Ramiro Antonio Medina Hernández", tel: "3309-1502" },
+      { id: 33, nombre: "ZPP Tablones", tipo: "ZPP", municipio: "Alubarén", zona: "Sur", codigoRups: "80060", lat: 13.7635, lng: -87.4318, nombreRepresentante: "Marlon Alay Rivas Mejía", tel: "8774-9032" },
+      { id: 34, nombre: "CIS Alubarén", tipo: "CIS", municipio: "Alubarén", zona: "Sur", codigoRups: "3841", lat: 13.7972, lng: -87.4703, nombreRepresentante: "Marlon Alay Rivas Mejía", tel: "8774-9032" },
+
+      // RED TALANGA
+      { id: 35, nombre: "UAPS San Cristóbal", tipo: "UAPS", municipio: "Vallecillo", zona: "Norte", codigoRups: "83119", lat: 14.5380, lng: -87.3980, nombreRepresentante: "Dulany Otoniel Archaga Martínez", tel: "9800-6539" },
+      { id: 36, nombre: "UAPS San José de la Moras", tipo: "UAPS", municipio: "Vallecillo", zona: "Norte", codigoRups: "81906", lat: 14.5250, lng: -87.3850, nombreRepresentante: "Dulany Otoniel Archaga Martínez", tel: "9800-6539" },
+      { id: 37, nombre: "UAPS Trinidad de Quebradas", tipo: "UAPS", municipio: "Vallecillo", zona: "Norte", codigoRups: "1180", lat: 14.4850, lng: -87.3550, nombreRepresentante: "Dulany Otoniel Archaga Martínez", tel: "9800-6539" },
+      { id: 38, nombre: "CIS Vallecillos", tipo: "CIS", municipio: "Vallecillo", zona: "Norte", codigoRups: "1198", lat: 14.5183, lng: -87.3986, nombreRepresentante: "Dulany Otoniel Archaga Martínez", tel: "9800-6539" },
+      { id: 39, nombre: "UAPS Corralito", tipo: "UAPS", municipio: "Talanga", zona: "Norte", codigoRups: "10103", lat: 14.3827, lng: -87.1093, nombreRepresentante: "Omar Fernando Godoy Martín", tel: "3378-3516" },
+      { id: 40, nombre: "UAPS La Ermita", tipo: "UAPS", municipio: "Talanga", zona: "Norte", codigoRups: "11073", lat: 14.4627, lng: -87.0693, nombreRepresentante: "Omar Fernando Godoy Martín", tel: "3378-3516" },
+      { id: 41, nombre: "UAPS Jalaca", tipo: "UAPS", municipio: "Talanga", zona: "Norte", codigoRups: "1171", lat: 14.3987, lng: -87.1727, nombreRepresentante: "Omar Fernando Godoy Martín", tel: "3378-3516" },
+      { id: 42, nombre: "CIS Talanga", tipo: "CIS", municipio: "Talanga", zona: "Norte", codigoRups: "1163", lat: 14.4076, lng: -87.0821, nombreRepresentante: "Omar Fernando Godoy Martín", tel: "3378-3516" },
+      { id: 43, nombre: "UAPS Yolucateca", tipo: "UAPS", municipio: "San Ignacio", zona: "Norte", codigoRups: "10087", lat: 14.6343, lng: -87.0254, nombreRepresentante: "Ana Gabriela Amador López", tel: "9419-4469" },
+      { id: 44, nombre: "UAPS San Antonio del Naranjal", tipo: "UAPS", municipio: "San Ignacio", zona: "Norte", codigoRups: "83094", lat: 14.6135, lng: -87.0176, nombreRepresentante: "Ana Gabriela Amador López", tel: "9419-4469" },
+      { id: 45, nombre: "UAPS Urrutia", tipo: "UAPS", municipio: "San Ignacio", zona: "Norte", codigoRups: "1155", lat: 14.6950, lng: -87.0250, nombreRepresentante: "Ana Gabriela Amador López", tel: "9419-4469" },
+      { id: 46, nombre: "UAPS Escano de Tepale", tipo: "UAPS", municipio: "San Ignacio", zona: "Norte", codigoRups: "1147", lat: 14.6450, lng: -87.0350, nombreRepresentante: "Ana Gabriela Amador López", tel: "9419-4469" },
+      { id: 47, nombre: "CIS San Ignacio", tipo: "CIS", municipio: "San Ignacio", zona: "Norte", codigoRups: "1139", lat: 14.6584, lng: -87.0349, nombreRepresentante: "Ana Gabriela Amador López", tel: "9419-4469" },
+      { id: 48, nombre: "CIS La Ceiba", tipo: "CIS", municipio: "Orica", zona: "Norte", codigoRups: "83101", lat: 14.7120, lng: -86.9280, nombreRepresentante: "Alex Fernando Soto", tel: "3244-9971" },
+      { id: 49, nombre: "UAPS El Encino", tipo: "UAPS", municipio: "Orica", zona: "Norte", codigoRups: "85031", lat: 14.6749, lng: -86.9169, nombreRepresentante: "Alex Fernando Soto", tel: "3244-9971" },
+      { id: 50, nombre: "UAPS San Francisco", tipo: "UAPS", municipio: "Orica", zona: "Norte", codigoRups: "10138", lat: 14.7559, lng: -86.9332, nombreRepresentante: "Alex Fernando Soto", tel: "3244-9971" },
+      { id: 51, nombre: "UAPS San Juan", tipo: "UAPS", municipio: "Orica", zona: "Norte", codigoRups: "10081", lat: 14.7350, lng: -86.9420, nombreRepresentante: "Alex Fernando Soto", tel: "3244-9971" },
+      { id: 52, nombre: "UAPS Miralda", tipo: "UAPS", municipio: "Orica", zona: "Norte", codigoRups: "1121", lat: 14.7020, lng: -86.9250, nombreRepresentante: "Alex Fernando Soto", tel: "3244-9971" },
+      { id: 53, nombre: "CIS Orica", tipo: "CIS", municipio: "Orica", zona: "Norte", codigoRups: "1112", lat: 14.7154, lng: -86.9438, nombreRepresentante: "Alex Fernando Soto", tel: "3244-9971" },
+      { id: 54, nombre: "UAPS La Esperanza", tipo: "UAPS", municipio: "Marale", zona: "Norte", codigoRups: "10113", lat: 14.8880, lng: -87.1650, nombreRepresentante: "Vilma Rosa Montes Aguilar", tel: "9732-3697" },
+      { id: 55, nombre: "UAPS Planes", tipo: "UAPS", municipio: "Marale", zona: "Norte", codigoRups: "9415", lat: 14.8650, lng: -87.1820, nombreRepresentante: "Vilma Rosa Montes Aguilar", tel: "9732-3697" },
+      { id: 56, nombre: "CIS Marale", tipo: "CIS", municipio: "Marale", zona: "Norte", codigoRups: "1104", lat: 14.8967, lng: -87.1769, nombreRepresentante: "Vilma Rosa Montes Aguilar", tel: "9732-3697" },
+      { id: 57, nombre: "UAPS Guaracacal", tipo: "UAPS", municipio: "Guaimaca", zona: "Norte", codigoRups: "83097", lat: 14.5580, lng: -86.8120, nombreRepresentante: "Karla Patricia Díaz Portillo", tel: "9994-4167" },
+      { id: 58, nombre: "UAPS San Quin", tipo: "UAPS", municipio: "Guaimaca", zona: "Norte", codigoRups: "83089", lat: 14.5326, lng: -86.8084, nombreRepresentante: "Karla Patricia Díaz Portillo", tel: "9994-4167" },
+      { id: 59, nombre: "UAPS El Zarzal", tipo: "UAPS", municipio: "Guaimaca", zona: "Norte", codigoRups: "10090", lat: 14.5250, lng: -86.8350, nombreRepresentante: "Karla Patricia Díaz Portillo", tel: "9994-4167" },
+      { id: 60, nombre: "CIS Guaimaca", tipo: "CIS", municipio: "Guaimaca", zona: "Norte", codigoRups: "1082", lat: 14.5444, lng: -86.8289, nombreRepresentante: "Karla Patricia Díaz Portillo", tel: "9994-4167" },
+      { id: 61, nombre: "UAPS El Guantillo", tipo: "UAPS", municipio: "El Porvenir", zona: "Norte", codigoRups: "1074", lat: 14.7320, lng: -87.1950, nombreRepresentante: "Karen Isabel Cabrera Escoto", tel: "9856-2130" },
+      { id: 62, nombre: "UAPS El Escanito", tipo: "UAPS", municipio: "El Porvenir", zona: "Norte", codigoRups: "1066", lat: 14.7450, lng: -87.1850, nombreRepresentante: "Karen Isabel Cabrera Escoto", tel: "9856-2130" },
+      { id: 63, nombre: "UAPS El Terrero", tipo: "UAPS", municipio: "El Porvenir", zona: "Norte", codigoRups: "1058", lat: 14.7380, lng: -87.1780, nombreRepresentante: "Karen Isabel Cabrera Escoto", tel: "9856-2130" },
+      { id: 64, nombre: "UAPS Agua Caliente", tipo: "UAPS", municipio: "El Porvenir", zona: "Norte", codigoRups: "1031", lat: 14.7250, lng: -87.2050, nombreRepresentante: "Karen Isabel Cabrera Escoto", tel: "9856-2130" },
+      { id: 65, nombre: "CIS El Porvenir", tipo: "CIS", municipio: "El Porvenir", zona: "Norte", codigoRups: "1040", lat: 14.7558, lng: -87.1894, nombreRepresentante: "Karen Isabel Cabrera Escoto", tel: "9856-2130" },
+      { id: 66, nombre: "UAPS Planes de Cedros", tipo: "UAPS", municipio: "Cedros", zona: "Norte", codigoRups: "85570", lat: 14.6120, lng: -87.1320, nombreRepresentante: "Omar Alext Díaz Medina", tel: "9553-4782" },
+      { id: 67, nombre: "CIS El Guante", tipo: "CIS", municipio: "Cedros", zona: "Norte", codigoRups: "81914", lat: 14.5480, lng: -87.0920, nombreRepresentante: "Omar Alext Díaz Medina", tel: "9553-4782" },
+      { id: 68, nombre: "UAPS Siria", tipo: "UAPS", municipio: "Cedros", zona: "Norte", codigoRups: "10120", lat: 14.6204, lng: -87.1242, nombreRepresentante: "Omar Alext Díaz Medina", tel: "9553-4782" },
+      { id: 69, nombre: "UAPS El Tablón", tipo: "UAPS", municipio: "Cedros", zona: "Norte", codigoRups: "10065", lat: 14.5661, lng: -87.0854, nombreRepresentante: "Omar Alext Díaz Medina", tel: "9553-4782" },
+      { id: 70, nombre: "UAPS Pueblo Nuevo", tipo: "UAPS", municipio: "Cedros", zona: "Norte", codigoRups: "1023", lat: 14.5850, lng: -87.1250, nombreRepresentante: "Omar Alext Díaz Medina", tel: "9553-4782" },
+      { id: 71, nombre: "UAPS Mata de Plátano", tipo: "UAPS", municipio: "Cedros", zona: "Norte", codigoRups: "1015", lat: 14.5120, lng: -87.1120, nombreRepresentante: "Omar Alext Díaz Medina", tel: "9553-4782" },
+      { id: 72, nombre: "UAPS El Suyatal", tipo: "UAPS", municipio: "Cedros", zona: "Norte", codigoRups: "1007", lat: 14.5272, lng: -87.0658, nombreRepresentante: "Omar Alext Díaz Medina", tel: "9553-4782" },
+      { id: 73, nombre: "UAPS Agalteca", tipo: "UAPS", municipio: "Cedros", zona: "Norte", codigoRups: "981", lat: 14.4889, lng: -87.1236, nombreRepresentante: "Omar Alext Díaz Medina", tel: "9553-4782" },
+      { id: 74, nombre: "CIS Cedros", tipo: "CIS", municipio: "Cedros", zona: "Norte", codigoRups: "890", lat: 14.6005, lng: -87.1192, nombreRepresentante: "Omar Alext Díaz Medina", tel: "9553-4782" },
+
+      // RED VALLE DE ÁNGELES Y JICARITO
+      { id: 75, nombre: "CIS Cantarranas", tipo: "CIS", municipio: "Cantarranas", zona: "Centro", codigoRups: "761", lat: 14.2598, lng: -87.0271, nombreRepresentante: "Kelly Sarahí Reyes Cárcamo", tel: "3357-0288" },
+      { id: 76, nombre: "UAPS El Zarzal", tipo: "UAPS", municipio: "Cantarranas", zona: "Centro", codigoRups: "957", lat: 14.2680, lng: -87.0390, nombreRepresentante: "Kelly Sarahí Reyes Cárcamo", tel: "3357-0288" },
+      { id: 77, nombre: "UAPS Joyas de Carballo", tipo: "UAPS", municipio: "Cantarranas", zona: "Centro", codigoRups: "81680", lat: 14.2440, lng: -87.0080, nombreRepresentante: "Kelly Sarahí Reyes Cárcamo", tel: "3357-0288" },
+      { id: 78, nombre: "UAPS Zurzular", tipo: "UAPS", municipio: "Cantarranas", zona: "Centro", codigoRups: "82988", lat: 14.2750, lng: -87.0120, nombreRepresentante: "Kelly Sarahí Reyes Cárcamo", tel: "3357-0288" },
+      { id: 79, nombre: "CIS Santa Lucía", tipo: "CIS", municipio: "Santa Lucía", zona: "Centro", codigoRups: "779", lat: 14.1155, lng: -87.1141, nombreRepresentante: "Henry Donaldo Andrade Corea", tel: "9442-4243" },
+      { id: 80, nombre: "UAPS El Chimbo", tipo: "UAPS", municipio: "Santa Lucía", zona: "Centro", codigoRups: "82996", lat: 14.1045, lng: -87.1325, nombreRepresentante: "Henry Donaldo Andrade Corea", tel: "9442-4243" },
+      { id: 81, nombre: "CIS Valle de Ángeles", tipo: "CIS", municipio: "Valle de Ángeles", zona: "Centro", codigoRups: "795", lat: 14.1604, lng: -87.0399, nombreRepresentante: "Adin Ebed Tinoco Ponce", tel: "9898-4214" },
+      { id: 82, nombre: "UAPS Cerro Grande", tipo: "UAPS", municipio: "Valle de Ángeles", zona: "Centro", codigoRups: "80322", lat: 14.1450, lng: -87.0510, nombreRepresentante: "Adin Ebed Tinoco Ponce", tel: "9898-4214" },
+      { id: 83, nombre: "CIS Lepaterique", tipo: "CIS", municipio: "Lepaterique", zona: "Centro", codigoRups: "892", lat: 14.0674, lng: -87.4687, nombreRepresentante: "Ingrid Maricela Perdomo Álvarez", tel: "3179-7450" },
+      { id: 84, nombre: "UAPS La Estancia", tipo: "UAPS", municipio: "Lepaterique", zona: "Centro", codigoRups: "9385", lat: 14.0550, lng: -87.4820, nombreRepresentante: "Ingrid Maricela Perdomo Álvarez", tel: "3179-7450" },
+      { id: 85, nombre: "UAPS Las Tablas", tipo: "UAPS", municipio: "Lepaterique", zona: "Centro", codigoRups: "9393", lat: 14.0758, lng: -87.4122, nombreRepresentante: "Ingrid Maricela Perdomo Álvarez", tel: "3179-7450" },
+      { id: 86, nombre: "UAPS Culguaque", tipo: "UAPS", municipio: "Lepaterique", zona: "Centro", codigoRups: "11509", lat: 14.0820, lng: -87.4480, nombreRepresentante: "Ingrid Maricela Perdomo Álvarez", tel: "3179-7450" },
+      { id: 87, nombre: "UAPS Mulhuaca", tipo: "UAPS", municipio: "Lepaterique", zona: "Centro", codigoRups: "81191", lat: 14.0620, lng: -87.4350, nombreRepresentante: "Ingrid Maricela Perdomo Álvarez", tel: "3179-7450" },
+      { id: 88, nombre: "UAPS Oropule", tipo: "UAPS", municipio: "Lepaterique", zona: "Centro", codigoRups: "83526", lat: 14.0880, lng: -87.4250, nombreRepresentante: "Ingrid Maricela Perdomo Álvarez", tel: "3179-7450" },
+      { id: 89, nombre: "UAPS Escarbadero", tipo: "UAPS", municipio: "Lepaterique", zona: "Centro", codigoRups: "85219", lat: 14.0450, lng: -87.4720, nombreRepresentante: "Ingrid Maricela Perdomo Álvarez", tel: "3179-7450" },
+      { id: 90, nombre: "CIS Tatumbla", tipo: "CIS", municipio: "Tatumbla", zona: "Centro", codigoRups: "787", lat: 14.0168, lng: -87.1018, nombreRepresentante: "Lourdes Patricia Guevara Segastume", tel: "9905-6188" },
+      { id: 91, nombre: "UAPS Cuesta Grande", tipo: "UAPS", municipio: "Tatumbla", zona: "Centro", codigoRups: "81931", lat: 14.0250, lng: -87.1110, nombreRepresentante: "Lourdes Patricia Guevara Segastume", tel: "9905-6188" },
+      { id: 92, nombre: "CIS Villa de San Francisco", tipo: "CIS", municipio: "Villa de San Francisco", zona: "Centro", codigoRups: "809", lat: 14.1743, lng: -86.9524, nombreRepresentante: "Lisandro Joel Sandoval Ortiz", tel: "9699-5878" },
+      { id: 93, nombre: "UAPS Coyolito", tipo: "UAPS", municipio: "Villa de San Francisco", zona: "Centro", codigoRups: "8702", lat: 14.1850, lng: -86.9650, nombreRepresentante: "Lisandro Joel Sandoval Ortiz", tel: "9699-5878" },
+      { id: 94, nombre: "CIS Jicarito", tipo: "CIS", municipio: "San Antonio de Oriente", zona: "Centro", codigoRups: "744", lat: 14.0185, lng: -87.0390, nombreRepresentante: "Herminia Margarita Moreno Urquía", tel: "9787-1353" },
+      { id: 95, nombre: "UAPS San Antonio de Oriente", tipo: "UAPS", municipio: "San Antonio de Oriente", zona: "Centro", codigoRups: "752", lat: 14.0452, lng: -87.0259, nombreRepresentante: "Herminia Margarita Moreno Urquía", tel: "9787-1353" },
+      { id: 96, nombre: "UAPS San Francisco", tipo: "UAPS", municipio: "San Antonio de Oriente", zona: "Centro", codigoRups: "80110", lat: 13.9850, lng: -86.9950, nombreRepresentante: "Herminia Margarita Moreno Urquía", tel: "9787-1353" },
+      { id: 97, nombre: "UAPS Tabla Grande", tipo: "UAPS", municipio: "San Antonio de Oriente", zona: "Centro", codigoRups: "80934", lat: 13.9920, lng: -87.0050, nombreRepresentante: "Herminia Margarita Moreno Urquía", tel: "9787-1353" },
+      { id: 98, nombre: "UAPS La Ciénega", tipo: "UAPS", municipio: "San Antonio de Oriente", zona: "Centro", codigoRups: "82970", lat: 13.9780, lng: -86.9850, nombreRepresentante: "Herminia Margarita Moreno Urquía", tel: "9787-1353" },
+      { id: 99, nombre: "CIS Maraita", tipo: "CIS", municipio: "Maraita", zona: "Sur", codigoRups: "728", lat: 13.8859, lng: -87.0373, nombreRepresentante: "Dileyła Ninoska Romero Palacios", tel: "9461-4111" },
+      { id: 100, nombre: "UAPS El Chagüite", tipo: "UAPS", municipio: "Maraita", zona: "Sur", codigoRups: "736", lat: 13.8950, lng: -87.0450, nombreRepresentante: "Dileyła Ninoska Romero Palacios", tel: "9461-4111" },
+      { id: 101, nombre: "UAPS Coato", tipo: "UAPS", municipio: "Maraita", zona: "Sur", codigoRups: "8656", lat: 13.8720, lng: -87.0220, nombreRepresentante: "Dileyła Ninoska Romero Palacios", tel: "9461-4111" },
+      { id: 102, nombre: "UAPS Las Tablas", tipo: "UAPS", municipio: "Maraita", zona: "Sur", codigoRups: "8664", lat: 13.8620, lng: -87.0480, nombreRepresentante: "Dileyła Ninoska Romero Palacios", tel: "9461-4111" },
+      { id: 103, nombre: "UAPS Terrero Blanco", tipo: "UAPS", municipio: "Maraita", zona: "Sur", codigoRups: "85421", lat: 13.9100, lng: -87.0350, nombreRepresentante: "Dileyła Ninoska Romero Palacios", tel: "9461-4111" }
+    ];
+
+    let markers = [];
+
+    function createHouseIcon(zona) {
+      let colorClass = 'icon-centro';
+      if (zona === 'Norte') colorClass = 'icon-norte';
+      if (zona === 'Sur') colorClass = 'icon-sur';
+
+      return L.divIcon({
+        className: 'custom-div-icon',
+        html: '<div class="custom-house-icon ' + colorClass + '" style="width: 32px; height: 32px;"><i class="fa-solid fa-house-medical" style="font-size: 15px;"></i></div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16]
+      });
+    }
+
+    function renderMarkers(filteredData) {
+      markers.forEach(function(m) { map.removeLayer(m); });
+      markers = [];
+
+      const tableBody = document.getElementById("tableBody");
+      tableBody.innerHTML = "";
+
+      filteredData.forEach(function(centro) {
+        const marker = L.marker([centro.lat, centro.lng], { icon: createHouseIcon(centro.zona) })
+          .bindPopup('<div style="font-family: sans-serif; padding: 2px;"><h3 style="margin-bottom: 5px; color: #1b365d; font-size: 1rem;">' + centro.nombre + '</h3><p style="margin: 2px 0;"><b>Tipo:</b> ' + centro.tipo + '</p><p style="margin: 2px 0;"><b>Municipio:</b> ' + centro.municipio + '</p><p style="margin: 2px 0;"><b>Zona:</b> ' + centro.zona + '</p><p style="margin: 2px 0;"><b>Representante:</b> ' + centro.nombreRepresentante + '</p><p style="margin: 2px 0;"><b>Teléfono:</b> ' + centro.tel + '</p></div>');
+
+        marker.addTo(map);
+        markers.push(marker);
+
+        const row = '<tr><td><b>' + centro.nombre + '</b></td><td>' + centro.tipo + '</td><td>' + centro.municipio + '</td><td>' + centro.zona + '</td><td>' + centro.nombreRepresentante + '</td><td>' + centro.tel + '</td></tr>';
+        tableBody.innerHTML += row;
+      });
+    }
+
+    function filterData() {
+      const selectedZone = document.getElementById("zoneSelect").value;
+      const searchText = document.getElementById("searchInput").value.toLowerCase();
+
+      const filtered = centrosSalud.filter(function(c) {
+        const matchesZone = (selectedZone === "todas" || c.zona === selectedZone);
+        const matchesSearch = c.nombre.toLowerCase().includes(searchText) || c.municipio.toLowerCase().includes(searchText) || c.nombreRepresentante.toLowerCase().includes(searchText);
+        return matchesZone && matchesSearch;
+      });
+
+      renderMarkers(filtered);
+      document.getElementById("printZoneText").innerText = "Zona seleccionada: " + (selectedZone === "todas" ? "Todas" : selectedZone);
+
+      if (selectedZone !== "todas" && filtered.length > 0) {
+        const group = new L.featureGroup(markers);
+        map.fitBounds(group.getBounds().pad(0.3));
+      } else if (selectedZone === "todas") {
+        map.setView([14.1800, -87.1600], 10);
+      }
+    }
+
+    renderMarkers(centrosSalud);
+  </script>
+</body>
+</html>
